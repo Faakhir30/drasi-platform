@@ -1,56 +1,45 @@
 # SmartRouter Reaction (Python)
 
-This reaction routes Drasi query result changes to dynamic Dapr pub/sub topics.
-
-## Why Python for this reaction
-
-This implementation uses the Python SDK because your agent-side stack is already Python-heavy (`dapr-agents`, `dapr.ext.drasi`) and you asked to optimize for Python proficiency. Using Python keeps the reaction and ToolSet evolution in one language and reduces integration overhead.
+This reaction routes Drasi query output (see `drasi-platform/typespec/query-output/main.tsp`) to Dapr pub/sub topics, with per-subscriber options aligned with [PostDaprPubSub](../dapr/post-pubsub).
 
 ## Features
 
-- List configured queries and descriptions via `GET /queries`.
-- Dynamic query subscriptions via `POST /subscriptions`.
-- Dynamic query unsubscriptions via `DELETE /subscriptions`.
-- List active subscriptions via `GET /subscriptions`.
-- Fan-out query results to all subscribed topics.
+- **Change events**: `Unpacked` (one message per row op, same shape as PostDaprPubSub `DrasiChangeFormatter`) or `Packed` (full `ChangeEvent` JSON per typespec).
+- **Control events**: Per route, `skipControlSignals` (default **true** for SmartRouter). When false, publishes unpacked (`op: X`) or packed `ControlEvent` like PostDaprPubSub `ControlSignalHandler`.
+- **Per route**: Each `(queryId, topic)` has its own `pubsubName`, `format`, `skipControlSignals`.
+- HTTP: `GET /queries`, `GET/POST/DELETE /subscriptions`.
 
-## Subscription model
+## Defaults
 
-- An agent instance topic can be its `ctx.instance_id`.
-- Subscribing means adding that topic to a query in SmartRouter.
-- Subsequent query changes are published to the subscribed topic through configured Dapr pub/sub.
+- `format`: **Unpacked**
+- `skipControlSignals`: **true** (unlike PostDaprPubSub manifest default `false`, SmartRouter is primarily used for agent data topics)
 
-## Query config schema
-
-Each query config supports:
+## Query config (YAML)
 
 ```yaml
 description: "Human readable query purpose"
-initialTopics:
-  - optional-topic-name
-skipControlSignals: true
+defaultFormat: Unpacked          # optional
+defaultSkipControlSignals: true  # optional; root key skipControlSignals also accepted
+defaultPubsubName: messagepubsub # optional; else reaction property pubsubName
+# (query, topic) level overrides can be done from subscription endpoints at time of subscribing.
 ```
 
-## Endpoints
+## Subscriptions API
 
-- `GET /queries`
-- `GET /subscriptions?queryId=<optional>`
-- `POST /subscriptions` with `{"queryId":"...", "topic":"..."}`
-- `DELETE /subscriptions` with `{"queryId":"...", "topic":"..."}`
+`POST /subscriptions` body:
 
-## Try it out (instance_id topic routing)
-
-1) Deploy the SmartRouter reaction (provider + reaction manifest) into your cluster.
-
-2) Run the agent-side listener with a chosen instance topic:
-
-```bash
-export SMART_ROUTER_URL="http://smart-router.drasi-system.svc.cluster.local"
-export INSTANCE_ID="demo-instance-1"
-export QUERY_ID="low-stock-event-query"
-python /home/f/w/oss/d/python-sdk/ext/dapr-ext-drasi/examples/02_smart_router_instance_topic.py
+```json
+{
+  "queryId": "low-stock-event-query",
+  "topic": "my-agent-instance-id", # optional, {{queryId}}-topic is automatically used otherwise.
+  "pubsubName": "messagepubsub", # TODO: make this optional by providing a defult pubsub component.
+  "format": "Unpacked",
+  "skipControlSignals": true
+}
 ```
 
-This will:
-- call SmartRouter `POST /subscriptions` so the query routes to the `INSTANCE_ID` topic
-- start a workflow listener subscribed to `pubsub=messagepubsub` and `topic=$INSTANCE_ID`
+`GET /subscriptions` returns each subscription as `{ topic, pubsubName, format, skipControlSignals }`.
+
+## Try it out
+
+Deploy SmartRouter, then from `dapr-ext-drasi` use `examples/02_durable_agent_smart_router.py` or call `POST /subscriptions` and subscribe your agent to the same pub/sub topic.
