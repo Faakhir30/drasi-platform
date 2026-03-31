@@ -1,0 +1,16 @@
+kind: Reaction
+apiVersion: v1
+name: smart-router
+spec:
+  kind: SmartRouter
+  properties:
+    pubsubName: messagepubsub
+  queries:
+    low-stock-event-query: |
+      description: "Low stock notifications for routing to agents."
+      # Query-level defaults for new routes (optional).
+      defaultFormat: Unpacked
+      defaultSkipControlSignals: true
+
+# (query, topic) level overrides can be done from subscription endpoints at time of subscribing.
+ 

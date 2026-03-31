@@ -1,0 +1,14 @@
+[tool.poetry]
+name = "smart-router-reaction"
+version = "0.1.0"
+description = "Drasi SmartRouter reaction for agent query routing"
+authors = [""]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+drasi-reaction-sdk = "0.1.0a0"
+dapr = "^1.15.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

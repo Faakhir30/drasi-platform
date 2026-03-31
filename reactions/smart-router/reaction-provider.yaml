@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ReactionProvider
+name: SmartRouter
+spec:
+  services:
+    reaction:
+      image: reaction-smart-router
+      endpoints:
+        gateway:
+          setting: internal
+          target: 80
+      config_schema:
+        type: object
+        properties:
+          pubsubName:
+            type: string
+            default: messagepubsub
